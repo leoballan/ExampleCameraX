@@ -3,7 +3,6 @@ package com.vila.cameraxtest
 import android.content.Context
 import android.graphics.*
 import android.media.Image
-import android.util.Log
 import android.view.SurfaceHolder
 import androidx.annotation.ColorInt
 
@@ -33,9 +32,9 @@ object Util
         val uvPixelStride = planes[1].pixelStride
         val width = image.width
         val height = image.height
-        Log.d("webservice","--------------")
+     /*   Log.d("webservice","--------------")
         Log.d("webservice","ancho ------ $width")
-        Log.d("webservice","alto --------$height")
+        Log.d("webservice","alto --------$height")*/
 
 
         @ColorInt val argb8888 = IntArray(width * height)
@@ -90,7 +89,7 @@ object Util
         return toInt() and 0xFF
     }
 
-    fun rotateAndCrop(
+    fun rotateAndCropWithFilter(
         bitmap: Bitmap,
         imageRotationDegrees: Int,
         cropRect: Rect
@@ -127,15 +126,7 @@ object Util
 
         canvas.drawBitmap(myBitmap,0f,0f,paint)
         return myBitmap
-    /*return Bitmap.createBitmap(
-            bitmap,
-            cropRect.left,
-            cropRect.top,
-            cropRect.width(),
-            cropRect.height(),
-            matrix,
-            true
-        )*/
+
     }
 
 

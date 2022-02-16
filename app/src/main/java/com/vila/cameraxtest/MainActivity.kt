@@ -24,8 +24,6 @@ import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 
 import com.vila.cameraxtest.databinding.ActivityMainBinding
 import java.util.concurrent.ExecutorService
@@ -116,7 +114,8 @@ class MainActivity : AppCompatActivity() {
         viewBinding.btnFlash.setOnClickListener { turnFlash() }
 
 
-
+        // no le presten a esta warning , habria que crear un boton que herede de Button
+        // que implemente el metodo performClick , pero no es necesario para este ejemplo
         viewBinding.btnBarcodeScan.setOnTouchListener(object : View.OnTouchListener {
             @SuppressLint("ClickableViewAccessibility")
             override fun onTouch(view: View?, motionEvent: MotionEvent?): Boolean {
@@ -125,7 +124,7 @@ class MainActivity : AppCompatActivity() {
                     MotionEvent.ACTION_DOWN -> {
                         Log.d("controlMio", "presionando boton barcode ......")
 
-                        scanMode = MODO_BARCODE
+                        scanMode = MODO_CON_FILTRO
                         viewBinding.btnBarcodeScan.background = getDrawable(R.drawable.background_button_pressed)
 
                         return true
@@ -143,6 +142,8 @@ class MainActivity : AppCompatActivity() {
 
         })
 
+        // no le presten a esta warning , habria que crear un boton que herede de Button
+        // que implemente el metodo performClick , pero no es necesario para este ejemplo
         viewBinding.btnTextScan.setOnTouchListener(object : View.OnTouchListener {
             @SuppressLint("ClickableViewAccessibility")
             override fun onTouch(view: View?, motionEvent: MotionEvent?): Boolean {
@@ -151,7 +152,7 @@ class MainActivity : AppCompatActivity() {
                     MotionEvent.ACTION_DOWN -> {
                         Log.d("controlMio", "presionando boton texto ......")
 
-                        scanMode = MODO_TEXTO
+                        scanMode = MODO_SIN_FILTRO
                         viewBinding.btnTextScan.background = getDrawable(R.drawable.background_button_pressed)
                     }
                     MotionEvent.ACTION_UP -> {
@@ -246,8 +247,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }.toTypedArray()
         private const val REQUEST_CODE_PERMISSIONS = 1000
-        private const val MODO_TEXTO = 1
-        private const val MODO_BARCODE = 2
+        private const val MODO_SIN_FILTRO = 1
+        private const val MODO_CON_FILTRO = 2
         private const val MODO_vacio = 0
 
 
@@ -287,7 +288,9 @@ class MainActivity : AppCompatActivity() {
     ) : ImageAnalysis.Analyzer {
 
 
-        private var scaleX = 1f
+        // Estas funciones se utilizan para dibuhar el cuadrado
+        // pero para simplicidad estan comentadas
+      /*private var scaleX = 1f
         private var scaleY = 1f
 
         private fun translateX(x: Float) = x * scaleX
@@ -298,7 +301,7 @@ class MainActivity : AppCompatActivity() {
             translateY(rect.top.toFloat()),
             translateX(rect.right.toFloat()),
             translateY(rect.bottom.toFloat())
-        )
+        )*/
 
         @SuppressLint("UnsafeOptInUsageError")
         override fun analyze(image: ImageProxy) {
@@ -308,23 +311,19 @@ class MainActivity : AppCompatActivity() {
           //  val image2 =
           //      InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
 
-            // REALIZAMOS EL CROP ******************************
 
-
-            if (scanMode == MODO_TEXTO){
+            if (scanMode == MODO_SIN_FILTRO){
 
                 val imageTemp = processImage(image)
                 val options = BarcodeScannerOptions.Builder()
                     .setBarcodeFormats(
-                        Barcode.FORMAT_QR_CODE
+                        Barcode.FORMAT_QR_CODE,Barcode.FORMAT_CODE_128
                     )
                     .build()
-                val scanner = BarcodeScanning.getClient()
+                val scanner = BarcodeScanning.getClient(options)
 
                 val result = scanner.process(imageTemp)
                     .addOnSuccessListener { barcodes ->
-
-                        //Log.d("controlMio", "estoy en success ......")
 
                         showBarcodeResult(barcodes)
                     }
@@ -335,6 +334,8 @@ class MainActivity : AppCompatActivity() {
                     }.addOnCompleteListener {
                         image.close()
                     }
+                //*****************************************************
+                // ESTE CODIGO SE USABA PARA EL RECONOCIMIENTO DE TEXTO
                 /*val textScanner = TextRecognition.getClient(
                     TextRecognizerOptions.DEFAULT_OPTIONS
                 )
@@ -355,20 +356,18 @@ class MainActivity : AppCompatActivity() {
                         image.close()
                     }*/
 
-            }else if (scanMode == MODO_BARCODE){
+            }else if (scanMode == MODO_CON_FILTRO){
                 val imageTemp = processImage(image)
 
                 val options = BarcodeScannerOptions.Builder()
                     .setBarcodeFormats(
-                        Barcode.FORMAT_QR_CODE
+                        Barcode.FORMAT_QR_CODE, Barcode.FORMAT_CODE_128
                     )
                     .build()
-                val scanner = BarcodeScanning.getClient()
+                val scanner = BarcodeScanning.getClient(options)
 
                 val result = scanner.process(imageTemp)
                     .addOnSuccessListener { barcodes ->
-
-                        //Log.d("controlMio", "estoy en success ......")
 
                         showBarcodeResult(barcodes)
                     }
@@ -392,6 +391,8 @@ class MainActivity : AppCompatActivity() {
         @SuppressLint("UnsafeOptInUsageError")
         private fun processImage(image: ImageProxy) :InputImage{
 
+            // REALIZAMOS EL CROP ******************************
+            // esta prate del codigo escanea solo el recuadro
 
             val mediaImage = image.image
             val bitmapTemp = Util.convertYuv420888ImageToBitmap(mediaImage!!)
@@ -400,8 +401,7 @@ class MainActivity : AppCompatActivity() {
             val height = bitmapTemp.height
             val width = bitmapTemp.width
 
-            //    Log.d("controlMio", " ancho mediaimage ....{$width}" )
-            //    Log.d("controlMio", " alto  mediaimage ....{$height}" )
+
 
             val left = mediaImage.height * WIDTH_CROPPED  / 2 / 100f
             val top = mediaImage.width * HEIGHT_CROPPED_TOP /100f
@@ -414,16 +414,16 @@ class MainActivity : AppCompatActivity() {
             val bitmap = Bitmap.createBitmap(bitmapTemp,0,0,width,height,matrix,true)
 
 
-            scaleX = previewViewWidth / mediaImage.height.toFloat()
-            scaleY = previewViewHeight / mediaImage.width.toFloat()
+         //   scaleX = previewViewWidth / mediaImage.height.toFloat()
+         //   scaleY = previewViewHeight / mediaImage.width.toFloat()
             val rect = Rect(left.toInt(),top.toInt(),right.toInt(),bottom.toInt())
             val rect2 = Rect(0,0,mediaImage.width,mediaImage.height)
 
             rect2.inset((height * (HEIGHT_CROPPED_BOTTOM/100f) /2).toInt(),(width * (WIDTH_CROPPED/100f) /2).toInt())
-            var bitmapToAnalyse : Bitmap
-            if(scanMode == MODO_BARCODE)
+            val bitmapToAnalyse : Bitmap
+            if(scanMode == MODO_CON_FILTRO)
             {
-                bitmapToAnalyse = Util.rotateAndCrop(bitmap,
+                bitmapToAnalyse = Util.rotateAndCropWithFilter(bitmap,
                     image.imageInfo.rotationDegrees,rect)
             }else{
                 bitmapToAnalyse = Util.rotateAndCropwithOutFiletr(bitmap,
@@ -437,27 +437,7 @@ class MainActivity : AppCompatActivity() {
         }
 
 
-        private fun <T> showResult(result: T) {
-            //Log.d("controlMio", "estoy en showresult ......")
 
-            when (result) {
-                is Text -> {
-                    Log.d(
-                        "controlMio",
-                        "estoy en showresult TEXTO......$result"
-                    )
-
-
-                }
-                is List<*> -> {
-                    Log.d(
-                        "controlMio",
-                        "estoy en showresult BARCODE......$result"
-                    )
-
-                }
-            }
-        }
 
         private fun showBarcodeResult(barcodes :List<Barcode>){
 
@@ -468,15 +448,18 @@ class MainActivity : AppCompatActivity() {
                         "controlMio",
                         "estoy en showresult BARCODE......${barcode.rawValue}"
                     )
-                    listener("BARRA "+barcode.rawValue.toString())
+                    listener(barcode.rawValue.toString())
                     // Update bounding rect
-                    barcode.boundingBox?.let { rect ->
+                    // el dibujo del cuadrado esta comentado por que habria que calcular
+                    // las coordenadas dentro del cuadrado
+
+                /*    barcode.boundingBox?.let { rect ->
                         barcodeBoxView.setRect(
                             adjustBoundingRect(
                                 rect
                             )
                         )
-                    }
+                    }*/
                 }
             } else {
                 // Remove bounding rect
@@ -485,6 +468,8 @@ class MainActivity : AppCompatActivity() {
 
         }
 
+        // Funcion para mostrar el resultado cuando reconocemos el texto
+        // que no se esta usando
         private fun showTextResult(textTemp :Text){
             val resultText = textTemp.text
             if(resultText.isNotEmpty()){
@@ -493,11 +478,12 @@ class MainActivity : AppCompatActivity() {
                     val blockCornerPoints = block.cornerPoints
                     val blockFrame = block.boundingBox
                     blockFrame?.let { rect ->
-                        barcodeBoxView.setRect(
+
+                        /*barcodeBoxView.setRect(
                             adjustBoundingRect(
                                 rect
                             )
-                        )
+                        )*/
                     }
                     Log.d(
                         "controlMio",
@@ -532,10 +518,10 @@ class MainActivity : AppCompatActivity() {
                     }*/
                 }
             }else{
-                barcodeBoxView.setRect(
+             /*   barcodeBoxView.setRect(
                     adjustBoundingRect(
                         Rect()
-                    ))
+                    ))*/
             }
 
 
