@@ -18,6 +18,10 @@
 
         />
 
+
+
+
+
     <SurfaceView
         android:id="@+id/surfaceView"
         android:layout_width="0dp"
@@ -28,7 +32,19 @@
         app:layout_constraintTop_toTopOf="@+id/viewFinder"
 
         />
-
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@+id/result"
+        app:layout_constraintBottom_toTopOf="@+id/btnBarcodeScan"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        tools:listitem="@layout/item_barcode"
+        android:background="@drawable/background_recycler"
+        />
     <ImageView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -53,7 +69,7 @@
         android:id="@+id/btnBarcodeScan"
         android:layout_width="wrap_content"
         android:layout_height="110dp"
-        android:layout_marginBottom="50dp"
+        android:layout_marginBottom="20dp"
         android:elevation="2dp"
         android:text="@string/start_capture"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -85,7 +101,7 @@
         android:id="@+id/btnTextScan"
         android:layout_width="wrap_content"
         android:layout_height="110dp"
-        android:layout_marginBottom="50dp"
+        android:layout_marginBottom="20dp"
         android:elevation="2dp"
         android:text="@string/stop_capture"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -94,6 +110,7 @@
         android:textSize="12sp"
         android:padding="4dp"
         android:background="@drawable/button_background"
+        android:visibility="gone"
         />
 
 
@@ -117,5 +134,27 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         app:layout_constraintGuide_percent=".75" />
+
+    <TextView
+        android:id="@+id/switchTittle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toTopOf="@id/switch1"
+        android:layout_marginBottom="6dp"
+        android:text="@string/stop_capture"
+        app:layout_constraintStart_toStartOf="@id/switch1"
+        app:layout_constraintEnd_toEndOf="@id/switch1"
+        />
+
+    <androidx.appcompat.widget.SwitchCompat
+        android:id="@+id/switch1"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@null"
+        app:layout_constraintBottom_toBottomOf="@id/btnFlash"
+        app:layout_constraintLeft_toLeftOf="@id/vertical_rightline"
+        app:layout_constraintRight_toRightOf="@id/vertical_rightline"
+        app:layout_constraintTop_toTopOf="@id/btnFlash"
+        />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -2,5 +2,5 @@
     <string name="app_name">CameraX Test</string>
     <string name="take_photo">Flash</string>
     <string name="start_capture">Con\n Filtro</string>
-    <string name="stop_capture">Sin\n Filtro</string>
+    <string name="stop_capture">Modo Texto</string>
 </resources>

@@ -9,21 +9,25 @@ import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
-import android.view.MotionEvent
 import android.view.SurfaceHolder
-import android.view.View
 import android.view.ViewGroup
+import androidx.activity.viewModels
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.camera.core.*
 import androidx.camera.core.Camera
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 
 import com.vila.cameraxtest.databinding.ActivityMainBinding
 import java.util.concurrent.ExecutorService
@@ -32,9 +36,6 @@ import java.util.concurrent.Executors
 class MainActivity : AppCompatActivity() {
 
     private lateinit var viewBinding: ActivityMainBinding
-
-
-
     private lateinit var cameraExecutor: ExecutorService
     private lateinit var camera: Camera
     private lateinit var cameraProvider: ProcessCameraProvider
@@ -42,16 +43,23 @@ class MainActivity : AppCompatActivity() {
     private lateinit var textAnalisis: ImageAnalysis
     private lateinit var cameraSelector: CameraSelector
     private lateinit var barcodeBoxView: BarcodeSquareView
-    private var scanMode = MODO_vacio
-    private val WIDTH_CROPPED : Int = 8
-    private val HEIGHT_CROPPED_TOP : Int = 10
-    private val HEIGHT_CROPPED_BOTTOM : Int = 65
+
+    private val mAdapter = NewAdapter(mutableListOf())
+    private val viewmodel : MainViewModel by viewModels()
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         viewBinding = ActivityMainBinding.inflate(layoutInflater)
-
         setContentView(viewBinding.root)
+        init()
+
+    }
+
+
+
+    private fun init() {
+
         barcodeBoxView = BarcodeSquareView(this)
         addContentView(barcodeBoxView,
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
@@ -80,19 +88,10 @@ class MainActivity : AppCompatActivity() {
                 override fun surfaceDestroyed(holder: SurfaceHolder) {
                     holder.removeCallback(this)
                 }
-
-
             })
         }
 
-        init()
-
-    }
-
-    private fun init() {
-
         viewBinding.result.bringToFront()
-        initListeners()
         cameraExecutor = Executors.newSingleThreadExecutor()
         if (allPermissionGranted()) {
             startCamera()
@@ -101,13 +100,51 @@ class MainActivity : AppCompatActivity() {
                 this, REQUIRED_PERMISSIONS, REQUEST_CODE_PERMISSIONS
             )
         }
-
-
+        initListeners()
+        initRecycler()
+        initObserver()
     }
 
 
+
+    private fun initObserver(){
+
+        viewmodel.barcodeList.observe(this, {lista->
+            Log.d("webservice","dentro observer")
+            Log.d("webservice","............ $lista")
+
+            mAdapter.updateList(lista)
+            //mAdapter.submitList(lista)
+        })
+    }
+
     private fun allPermissionGranted() = REQUIRED_PERMISSIONS.all {
         ContextCompat.checkSelfPermission(baseContext, it) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun initRecycler(){
+
+        viewBinding.recycler.apply {
+            layoutManager = LinearLayoutManager(this@MainActivity)
+            //background.alpha = 50
+            setHasFixedSize(true)
+            adapter =mAdapter
+            bringToFront()
+        }
+
+        val itemtouchHelper = ItemTouchHelper(object :ItemTouchHelper.SimpleCallback(0,ItemTouchHelper.LEFT){
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ) = false
+
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                viewmodel.eraseBarcode(viewHolder.adapterPosition)
+            }
+        })
+        itemtouchHelper.attachToRecyclerView(viewBinding.recycler)
     }
 
     private fun initListeners() {
@@ -116,7 +153,7 @@ class MainActivity : AppCompatActivity() {
 
         // no le presten a esta warning , habria que crear un boton que herede de Button
         // que implemente el metodo performClick , pero no es necesario para este ejemplo
-        viewBinding.btnBarcodeScan.setOnTouchListener(object : View.OnTouchListener {
+       /* viewBinding.btnBarcodeScan.setOnTouchListener(object : View.OnTouchListener {
             @SuppressLint("ClickableViewAccessibility")
             override fun onTouch(view: View?, motionEvent: MotionEvent?): Boolean {
 
@@ -166,8 +203,17 @@ class MainActivity : AppCompatActivity() {
             }
 
         })
+        */
+        viewBinding.switch1.setOnCheckedChangeListener { compoundButton, ischecked ->
+
+            if(ischecked){
+                scanMode = MODO_TEXTO
+            }else{
+                scanMode = MODO_BARCODE
+            }
 
 
+        }
 
     }
 
@@ -188,6 +234,7 @@ class MainActivity : AppCompatActivity() {
 
             textAnalisis = ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+              //  .setTargetResolution(Size(720, 1280))
                 .build()
                 .also {
                     it.setAnalyzer(cameraExecutor, TextAnalysis(this
@@ -196,6 +243,7 @@ class MainActivity : AppCompatActivity() {
                         ,viewBinding.viewFinder.height.toFloat()) { text ->
 
                         Log.d("webservice", "Resultado  .... $text")
+                        viewmodel.processBarcode(text)
 
                         viewBinding.result.text = text
                     })
@@ -246,10 +294,14 @@ class MainActivity : AppCompatActivity() {
                     add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
                 }
             }.toTypedArray()
+
+        val WIDTH_CROPPED : Int = 8
+        val HEIGHT_CROPPED_TOP : Int = 10
+        val HEIGHT_CROPPED_BOTTOM : Int = 65
         private const val REQUEST_CODE_PERMISSIONS = 1000
-        private const val MODO_SIN_FILTRO = 1
-        private const val MODO_CON_FILTRO = 2
-        private const val MODO_vacio = 0
+        const val MODO_TEXTO = 1
+        const val MODO_BARCODE = 2
+        var scanMode = MODO_BARCODE
 
 
     }
@@ -306,37 +358,20 @@ class MainActivity : AppCompatActivity() {
         @SuppressLint("UnsafeOptInUsageError")
         override fun analyze(image: ImageProxy) {
 
-            Log.d("controlMio", "dentro TextAnalisis")
+           // Log.d("controlMio", "dentro TextAnalisis")
 
           //  val image2 =
           //      InputImage.fromMediaImage(mediaImage, image.imageInfo.rotationDegrees)
 
 
-            if (scanMode == MODO_SIN_FILTRO){
+            if (scanMode == MODO_TEXTO){
 
-                val imageTemp = processImage(image)
-                val options = BarcodeScannerOptions.Builder()
-                    .setBarcodeFormats(
-                        Barcode.FORMAT_QR_CODE,Barcode.FORMAT_CODE_128
-                    )
-                    .build()
-                val scanner = BarcodeScanning.getClient(options)
 
-                val result = scanner.process(imageTemp)
-                    .addOnSuccessListener { barcodes ->
 
-                        showBarcodeResult(barcodes)
-                    }
-                    .addOnFailureListener {
-
-                        Log.d("controlMio", "estoy en onfailure ......" + it.message)
-
-                    }.addOnCompleteListener {
-                        image.close()
-                    }
                 //*****************************************************
                 // ESTE CODIGO SE USABA PARA EL RECONOCIMIENTO DE TEXTO
-                /*val textScanner = TextRecognition.getClient(
+                val imageTemp = processImage(image)
+                val textScanner = TextRecognition.getClient(
                     TextRecognizerOptions.DEFAULT_OPTIONS
                 )
 
@@ -344,7 +379,7 @@ class MainActivity : AppCompatActivity() {
                 val result = textScanner.process(imageTemp)
                     .addOnSuccessListener { text ->
 
-                        //Log.d("controlMio", "estoy en success ......")
+                        Log.d("controlMio", "estoy en success TEXTO......")
 
                         showTextResult(text)
                     }
@@ -354,20 +389,27 @@ class MainActivity : AppCompatActivity() {
 
                     }.addOnCompleteListener {
                         image.close()
-                    }*/
+                    }
 
-            }else if (scanMode == MODO_CON_FILTRO){
+
+
+            }else{
+               /* barcodeBoxView.setRect(
+                    adjustBoundingRect(
+                        Rect()
+                    ))*/
+
                 val imageTemp = processImage(image)
-
                 val options = BarcodeScannerOptions.Builder()
                     .setBarcodeFormats(
-                        Barcode.FORMAT_QR_CODE, Barcode.FORMAT_CODE_128
+                        Barcode.FORMAT_QR_CODE,Barcode.FORMAT_CODE_128
                     )
                     .build()
-                val scanner = BarcodeScanning.getClient(options)
+                val scanner = BarcodeScanning.getClient()
 
                 val result = scanner.process(imageTemp)
                     .addOnSuccessListener { barcodes ->
+                        Log.d("controlMio", "estoy en onsuccess ......" )
 
                         showBarcodeResult(barcodes)
                     }
@@ -378,12 +420,7 @@ class MainActivity : AppCompatActivity() {
                     }.addOnCompleteListener {
                         image.close()
                     }
-            }else{
-               /* barcodeBoxView.setRect(
-                    adjustBoundingRect(
-                        Rect()
-                    ))*/
-                image.close()
+              //  image.close()
             }
 
             }
@@ -420,8 +457,11 @@ class MainActivity : AppCompatActivity() {
             val rect2 = Rect(0,0,mediaImage.width,mediaImage.height)
 
             rect2.inset((height * (HEIGHT_CROPPED_BOTTOM/100f) /2).toInt(),(width * (WIDTH_CROPPED/100f) /2).toInt())
+
+
+
             val bitmapToAnalyse : Bitmap
-            if(scanMode == MODO_CON_FILTRO)
+            if(scanMode == MODO_BARCODE)
             {
                 bitmapToAnalyse = Util.rotateAndCropWithFilter(bitmap,
                     image.imageInfo.rotationDegrees,rect)
@@ -448,7 +488,7 @@ class MainActivity : AppCompatActivity() {
                         "controlMio",
                         "estoy en showresult BARCODE......${barcode.rawValue}"
                     )
-                    listener(barcode.rawValue.toString())
+                    listener(barcode.displayValue.toString())
                     // Update bounding rect
                     // el dibujo del cuadrado esta comentado por que habria que calcular
                     // las coordenadas dentro del cuadrado
@@ -523,7 +563,6 @@ class MainActivity : AppCompatActivity() {
                         Rect()
                     ))*/
             }
-
 
         }
     }
